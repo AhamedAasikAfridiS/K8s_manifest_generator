@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-agent-service
+  namespace: k8s-manifest-generator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-agent-service
+  template:
+    metadata:
+      labels:
+        app: ai-agent-service
+    spec:
+      containers:
+        - name: ai-agent-service
+          image: k8s-manifest-generator/ai-agent-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8002
+          env:
+            - name: USE_MOCK_LLM
+              value: "true"
+            - name: CORS_ORIGINS
+              value: "http://localhost:3000,http://localhost:5173"
+          envFrom:
+            - secretRef:
+                name: app-secrets
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+            - name: generated
+              mountPath: /app/generated
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 25
+            periodSeconds: 20
+      volumes:
+        - name: uploads
+          emptyDir: {}
+        - name: generated
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-agent-service
+  namespace: k8s-manifest-generator
+spec:
+  selector:
+    app: ai-agent-service
+  ports:
+    - port: 8002
+      targetPort: 8002
